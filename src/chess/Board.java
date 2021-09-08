@@ -16,6 +16,7 @@ import java.util.ArrayList;
 import javax.swing.ImageIcon;
 import javax.swing.JButton;
 import javax.swing.JPanel;
+import javax.swing.SwingUtilities;
 
 public class Board extends JPanel implements Runnable{
 	
@@ -25,7 +26,7 @@ public class Board extends JPanel implements Runnable{
 	int w = 480;
 	int h = 480;
 	char[][] pieces = new char[8][8], tempBoard = new char[8][8];
-	char[][] init = {
+	/*char[][] init = {
 			{'R', 'N', 'B', 'Q', 'K', 'B', 'N', 'R'},
 			{'P','P','P','P','P','P','P','P'},
 			{'.','.','.','.','.','.','.','.'},
@@ -34,6 +35,17 @@ public class Board extends JPanel implements Runnable{
 			{'.','.','.','.','.','.','.','.'},
 			{'p','p','p','p','p','p','p','p'},
 			{'r', 'n', 'b', 'q', 'k', 'b', 'n', 'r'}
+	};*/
+	
+	char[][] init = {
+			{'.','.','.','.','.','.','.','.'},
+			{'.','.','.','.','.','.','.','.'},
+			{'.','.','.','.','.','.','.','.'},
+			{'.','.','.','.','.','.','.','.'},
+			{'.','Q','.','.','.','.','.','.'},
+			{'.','.','.','.','.','.','.','.'},
+			{'.','.','.','.','.','.','.','.'},
+			{'k','.','.','K','.','.','.','.'}
 	};
 	
 	Image k;
@@ -50,39 +62,7 @@ public class Board extends JPanel implements Runnable{
 	Image P;
 	
 	Color color;
-	
-	class Field implements Cloneable{
-		int x,  y;
-		public Field(int x, int y) {
-			this.x = x;
-			this.y = y;
-		}
-		@Override
-		public boolean equals(Object obj) {
-			Field f = (Field)obj;
-			return (x == f.x && y == f.y);
-		}
-	}
-	
-	class Move{
-		Field start, end;
-		public Move(Field start, Field end) {
-			this.start = start;
-			this.end = end;
-		}
-	}
-	
-	class Context{
-		boolean castledWhite = false;
-		boolean castledBlack = false;
-		boolean kingMovedWhite = false;
-		boolean kingMovedBlack = false;
-		boolean rook00Moved = false;
-		boolean rook07Moved = false;
-		boolean rook70Moved = false;
-		boolean rook77Moved = false;
-	}
-	
+
 	Context pieceContext = new Context();
 	Context tempContext = new Context();
 	PieceColor turn = PieceColor.WHITE;
@@ -105,6 +85,7 @@ public class Board extends JPanel implements Runnable{
 	boolean rook70Moved = false;
 	boolean rook77Moved = false;
 	boolean gameOver = false;
+	boolean stalemate = false;
 	
 	Field tempCurrent = new Field(1,1);
 	Field animated = null;
@@ -204,8 +185,6 @@ public class Board extends JPanel implements Runnable{
 		Graphics2D g2D = (Graphics2D)g;
 		fieldSize = w/8;
 		g2D.setColor(color);
-		
-		//System.out.println("IN PAINT");
 		
 		for(int i = 0; i<8; i++)
 			for(int j = 0; j<8; j++) {
@@ -322,10 +301,29 @@ public class Board extends JPanel implements Runnable{
 			pieces[y][x] = 'q';
 		}
 		
+		if (pieces == this.pieces) {
+			addCurrentTable();
+			
+			if (animate && !premoved) {
+				animatedPiece = new Field(x, y);
+				//System.out.println(current.x + " " + current.y);
+				animated = new Field(current.x * fieldSize, current.y * fieldSize);
+				animatedStart = new Field(current.x * fieldSize, current.y * fieldSize);
+				animatedEnd = new Field(x * fieldSize, y * fieldSize);
+				animatedThread = new Thread(animation);
+				animatedThread.start();
+			}
+			
+		}
+		
 		if (pieces == this.pieces && gameOver()) {
-			
-			
-			if (turn.equals(PieceColor.WHITE)) {
+			if (threefold()) {
+				owner.winner.setText("Draw by repetition");
+			}
+			else if (stalemate()) {
+				owner.winner.setText("Stalemate");
+			}
+			else if (turn.equals(PieceColor.WHITE)) {
 				owner.winner.setText("Black has won");
 			}
 			else {
@@ -337,24 +335,44 @@ public class Board extends JPanel implements Runnable{
 			//System.out.println("GAME OVER!");
 		}
 		
-		if (pieces == this.pieces) {
-			addCurrentTable();
-			
-			if (animate) {
-				animatedPiece = new Field(x, y);
-				//System.out.println(current.x + " " + current.y);
-				animated = new Field(current.x * fieldSize, current.y * fieldSize);
-				animatedStart = new Field(current.x * fieldSize, current.y * fieldSize);
-				animatedEnd = new Field(x * fieldSize, y * fieldSize);
-				animatedThread = new Thread(animation);
-				animatedThread.start();
-			}
-			
-		}
 		repaint();
 			
 	}
 	
+	private boolean equal(char[][] mat1, char[][] mat2) {
+		for(int i = 0; i<8; i++)
+			for(int j = 0; j<8; j++) {
+				if (mat1[i][j] != mat2[i][j])
+					return false;
+			}
+		return true;
+	}
+	
+	private boolean threefold() {
+		if (currMove < 9)
+			return false;
+		for(int i = 0; i < 2; i++)
+			if (!(equal(tables.get(currMove - i), tables.get(currMove - 4 - i))
+					&& equal(tables.get(currMove - i), tables.get(currMove - 8 - i))))
+				return false;
+		return true;
+	}
+
+	private boolean stalemate() {
+		Field kingPos = null;
+		PieceColor oppTurn = (turn.equals(PieceColor.WHITE) ? PieceColor.BLACK : PieceColor.WHITE);
+		for(int i = 0; i<8; i++)
+			for(int j = 0; j<8; j++) {
+				if ((turn.equals(PieceColor.WHITE) && pieces[i][j] == 'K') || (turn.equals(PieceColor.BLACK) && pieces[i][j] == 'k')) {
+					kingPos = new Field(j,i);
+				}
+			}
+		if (!getAttackedByOpponent(turn, pieces, pieceContext).contains(kingPos))
+			return true;
+		else
+			return false;
+	}
+
 	class Animation implements Runnable{
 
 		@Override
@@ -425,9 +443,20 @@ public class Board extends JPanel implements Runnable{
 		addMouseListener(new MouseAdapter() {
 			@Override
 			public void mouseClicked(MouseEvent e) {
+				
+				if (!SwingUtilities.isLeftMouseButton(e)) return;
+				
 				int x,y;
 				x = e.getX()/fieldSize;
 				y = 7 - e.getY()/fieldSize;
+				
+				if (premoved &&  (currMove == tables.size() - 1) && !premove.end.equals(new Field(x,y))) {
+					premoved = false;
+					premove = null;
+					draggedStart = null;
+					repaint();
+					return;
+				}
 				
 				if (getColor(pieces[y][x]).equals(PieceColor.WHITE) && currMove == tables.size() - 1 && !gameOver && !clicked && pieces[y][x] != '.' ) {
 					clicked = true;
@@ -459,6 +488,9 @@ public class Board extends JPanel implements Runnable{
 			@Override
 			public void mouseReleased(MouseEvent e) {
 				
+				
+				if (!SwingUtilities.isLeftMouseButton(e)) return;
+				
 				if (!((currMove == tables.size() - 1)))
 					return;
 				if (attacked == null)
@@ -481,8 +513,18 @@ public class Board extends JPanel implements Runnable{
 				draggedEnd = new Field(x,y);
 				
 				if (turn.equals(PieceColor.BLACK)) {
+					
+					Field startingField = new Field(draggedStart.x, draggedStart.y);
+					Field endingField = new Field(x,y);
+					
+					attacked = getPremovableFields(startingField, pieceContext);
+					draggedStart = null;
+					if (!attacked.contains(endingField)) {
+						return;
+					}
+					
 					premoved = true;
-					premove = new Move(new Field(draggedStart.x, draggedStart.y), new Field(x, y));
+					premove = new Move(startingField, endingField);
 					repaint();
 					return;
 				}
@@ -514,6 +556,7 @@ public class Board extends JPanel implements Runnable{
 			@Override
 			public void mouseDragged(MouseEvent e) {
 				
+				if (!SwingUtilities.isLeftMouseButton(e)) return;
 				clicked = false;
 				
 				if (!dragging) {
@@ -682,7 +725,7 @@ public class Board extends JPanel implements Runnable{
 				}
 			}
 		
-		return res;
+		return res || threefold();
 	}
 	
 	@Override
@@ -697,6 +740,31 @@ public class Board extends JPanel implements Runnable{
 		
 		char[][] table = tables.get(currMove);
 		
+		if (premoved  &&  currMove == tables.size() - 1) {
+			Field startField = premove.start;
+			Field endField = premove.end;
+			
+			double opacity = 0.8;
+			
+			
+			Color forWhite = Color.decode("#5E7594");
+			Color forBlack = Color.decode("#455B77");
+					
+			
+			Color toSet = ((startField.x + startField.y) % 2 == 0) ? forBlack: forWhite; 
+			g2D.setColor(toSet);
+			
+			g2D.fillRect(startField.x * fieldSize, (7 - startField.y) * fieldSize, fieldSize, fieldSize);
+			
+			
+			toSet = ((endField.x + endField.y) % 2 == 0) ? forBlack: forWhite; 
+			g2D.setColor(toSet);
+			
+			g2D.fillRect(endField.x * fieldSize, (7 - endField.y) * fieldSize, fieldSize, fieldSize);
+			
+			
+		}
+		
 		if (currMove - 1 >= 0 && currMove - 1 < moves.size()) {
 			Move move = moves.get(currMove - 1);
 			Field startField = move.start;
@@ -707,83 +775,514 @@ public class Board extends JPanel implements Runnable{
 	                AlphaComposite.SRC_OVER, (float)opacity));
 			g2D.setColor(new Color(252, 245, 95));
 			
-			g2D.fillRect(startField.x * fieldSize, (7 - startField.y) * fieldSize, fieldSize, fieldSize);
+			if (premove == null || (!startField.equals(premove.start) && !startField.equals(premove.end)))
+				g2D.fillRect(startField.x * fieldSize, (7 - startField.y) * fieldSize, fieldSize, fieldSize);
 			
 			opacity = (endField.x + endField.y) % 2 == 0 ? 0.5 : 0.8;
 			
 			g2D.setComposite(AlphaComposite.getInstance(
 	                AlphaComposite.SRC_OVER, (float)opacity));
 			
-			g2D.fillRect(endField.x * fieldSize, (7 - endField.y) * fieldSize, fieldSize, fieldSize);
+			if (premove == null || (!endField.equals(premove.start) && !endField.equals(premove.end)))
+				g2D.fillRect(endField.x * fieldSize, (7 - endField.y) * fieldSize, fieldSize, fieldSize);
 			
 			g2D.setComposite(AlphaComposite.getInstance(
 	                AlphaComposite.SRC_OVER));
 		}
-		
 		
 		
 		for(int i = 0; i<8; i++)
 			for(int j = 0; j<8; j++) {
-				if (table[i][j] != '.' &&  (premove == null || !premove.start.equals(new Field(j,i))) && (draggedStart == null || !draggedStart.equals(new Field(j,i))) && (animatedPiece == null || !animatedPiece.equals(new Field(j,i)))) {
-					//if (new Field(j,i).equals(current))
-						//System.out.println("ODJE");
+				if (table[i][j] != '.' && (draggedStart == null || !draggedStart.equals(new Field(j,i))) && (animatedPiece == null || !animatedPiece.equals(new Field(j,i)))) {
 					Image img = getImage(table[i][j]);
+					//System.out.println(i + " " + j);
 					g2D.drawImage(img, j*w/8, (7-i)*h/8, null);
 				}
-				
 			}
 		
-		
-		if (animatedPiece != null) {
-			//System.out.println("GR " + animated.y + " " + table[i][j]);
+	
+		if (animatedPiece != null && currMove == tables.size() - 1) {
 			Image img = getImage(table[animatedPiece.y][animatedPiece.x]);
 			g2D.drawImage(img, animated.x, getHeight() - fieldSize - animated.y, null);
 		}
 		
-		if (premoved) {
-			Field startField = premove.start;
-			Field endField = premove.end;
-			
-			double opacity = (startField.x + startField.y) % 2 == 0 ? 0.8 : 0.8;
-			g2D.setComposite(AlphaComposite.getInstance(
-	                AlphaComposite.SRC_OVER, (float)opacity));
-			g2D.setColor(new Color(195, 177, 225));
-			
-			g2D.fillRect(startField.x * fieldSize, (7 - startField.y) * fieldSize, fieldSize, fieldSize);
-			
-			opacity = (endField.x + endField.y) % 2 == 0 ? 0.8 : 0.8;
-			
-			g2D.setComposite(AlphaComposite.getInstance(
-	                AlphaComposite.SRC_OVER, (float)opacity));
-			
-			g2D.fillRect(endField.x * fieldSize, (7 - endField.y) * fieldSize, fieldSize, fieldSize);
-			
-			g2D.setComposite(AlphaComposite.getInstance(
-	                AlphaComposite.SRC_OVER));
-		}
 		
-		if (draggedStart != null) {
+		
+		if (draggedStart != null &&  currMove == tables.size() - 1) {
 			Image img = getImage(table[draggedStart.y][draggedStart.x]);
 			g2D.drawImage(img, dragged.x - xoff, dragged.y - yoff, null);
 		}
-		if (premove != null) {
+		/*if (premove != null &&  currMove == tables.size() - 1) {
 			Image img = getImage(table[premove.end.y][premove.end.x]);
 			g2D.drawImage(img, premove.end.x * fieldSize, premove.end.y * fieldSize, null);
 		}
-		
-		if (clicked && currMove == tables.size() - 1) {
+		*/
+		if (clicked && currMove == tables.size() - 1 && !premoved) {
 			g2D.setComposite(AlphaComposite.getInstance(
 	                AlphaComposite.SRC_OVER, (float)0.5));
 			g2D.setColor(new Color(27,18,18));
 			
 			for(Field f:attacked) {
 				if (!blocked.contains(f))
-					g2D.fillOval(f.x * fieldSize + 10, (7-f.y) * fieldSize + 10, fieldSize - 20, fieldSize - 20);
+					g2D.fillOval(f.x * fieldSize + 20, (7-f.y) * fieldSize + 20, fieldSize - 40, fieldSize - 40);
 			}
 			
 			g2D.setComposite(AlphaComposite.getInstance(
 	                AlphaComposite.SRC_OVER));
 		}
+	}
+	
+	private ArrayList<Field> getPremovableFields(Field curr, Context s) {
+		ArrayList<Field> res = new ArrayList<>();
+		
+		char p = pieces[curr.y][curr.x];
+		char toUpper = (char) (pieces[curr.y][curr.x] + ((getColor(pieces[curr.y][curr.x]).equals(PieceColor.BLACK)) ? ('A' - 'a'): 0));
+		//System.out.println("F" + curr.y + " " + curr.x);
+		char c;
+		switch (toUpper) {
+		case 'R':
+			for(int i = 0; i<8; i++) {
+				
+					res.add(new Field(i,curr.y));
+				
+					
+			}
+			for(int i = 7; i>=0; i--) {
+				
+				
+					res.add(new Field(i,curr.y));
+				
+			}
+			for(int i = 0; i<8; i++) {
+				
+					res.add(new Field(curr.x, i));
+				
+			}
+			for(int i = 7; i>=0; i--) {
+				
+					res.add(new Field(curr.x, i));
+				
+					
+			}
+			break;
+		
+		case 'B':
+			for(int i = 0; i<8; i++) {
+				
+				int yn = i - (curr.x - curr.y);
+				if (yn < 0 || yn >= 8)
+					break;
+				
+					res.add(new Field(i,yn));
+				
+				
+			}
+			for(int i = 7; i>=0; i--) {
+				int yn = i - (curr.x - curr.y);
+				if (yn < 0 || yn >= 8)
+					break;
+				
+					res.add(new Field(i,yn));
+				
+			}
+			for(int i = 0; i<8; i++) {
+				int xn = (curr.x + curr.y) - i;
+				if (xn < 0 || xn >= 8)
+					break;
+				
+					res.add(new Field(xn, i));
+				
+			}
+			for(int i = 7; i>=0; i--) {
+				int xn = (curr.x + curr.y) - i;
+				if (xn < 0 || xn >= 8)
+					break;
+				
+					res.add(new Field(xn, i));
+				
+				
+			}
+			break;
+		case 'Q':
+			for(int i = 0; i<8; i++) {
+				
+					res.add(new Field(i,curr.y));
+				
+				
+					
+			}
+			for(int i = 7; i>=0; i--) {
+				
+					res.add(new Field(i,curr.y));
+				
+			}
+			for(int i = 0; i<8; i++) {
+				
+					res.add(new Field(curr.x, i));
+				
+			}
+			for(int i = 7; i>=0; i--) {
+				
+					res.add(new Field(curr.x, i));
+				
+					
+			}
+			for(int i = 0; i<8; i++) {
+				
+				int yn = i - (curr.x - curr.y);
+				if (yn < 0 || yn >= 8)
+					break;
+				
+					res.add(new Field(i,yn));
+				
+				
+				
+			}
+			for(int i = 7; i>=0; i--) {
+				int yn = i - (curr.x - curr.y);
+				if (yn < 0 || yn >= 8)
+					break;
+			
+				
+					res.add(new Field(i,yn));
+				
+				
+			}
+			for(int i = 0; i<8; i++) {
+				int xn = (curr.x + curr.y) - i;
+				if (xn < 0 || xn >= 8)
+					break;
+				
+					res.add(new Field(xn, i));
+				
+				
+			}
+			for(int i = 7; i>=0; i--) {
+				int xn = (curr.x + curr.y) - i;
+				if (xn < 0 || xn >= 8)
+					break;
+				
+				res.add(new Field(xn, i));
+				
+				
+			}
+			break;
+		case 'N':
+			int[] offs = {1, -1, 2, -2};
+			for(int ox:offs) {
+				for(int oy:offs) {
+					if (Math.abs(ox) != Math.abs(oy) && !outOfBounds(curr.x + ox, curr.y + oy) ) {
+						res.add(new Field(curr.x + ox, curr.y + oy));
+					}
+				}
+			}
+			break;
+		case 'P':
+			if (getColor(p).equals(PieceColor.WHITE)) {
+				if (curr.y + 1 < 8 && curr.x + 1 < 8 ) {
+					res.add(new Field(curr.x + 1, curr.y + 1));
+				}
+				if (curr.y + 1 < 8 && curr.x - 1 >= 0)
+				{
+					res.add(new Field(curr.x - 1, curr.y + 1));
+				}
+				if (curr.y + 1 < 8) {
+					res.add(new Field(curr.x, curr.y + 1));
+					if (curr.y == 1) {
+						
+						res.add(new Field(curr.x, curr.y + 2));
+					}
+				}
+			}
+			else {
+				if (curr.y - 1 >= 0 && curr.x + 1 < 8 ) {
+					res.add(new Field(curr.x + 1, curr.y - 1));
+				}
+				if (curr.y - 1 >= 0 && curr.x - 1 >= 0 ) {
+					res.add(new Field(curr.x - 1, curr.y - 1));
+				}
+				if (curr.y - 1 >= 0) {
+					res.add(new Field(curr.x, curr.y - 1));
+					if (curr.y == 6) {
+						if (pieces[curr.y - 2][curr.x] == '.')
+							res.add(new Field(curr.x, curr.y - 2));
+					}
+				}
+			}
+			break;
+		case 'K':
+			int[] off = {1, -1, 0};
+			for(int ox:off) {
+				for(int oy:off) {
+					if (Math.abs(ox) + Math.abs(oy) > 0 && !outOfBounds(curr.x + ox, curr.y + oy)) {
+						res.add(new Field(curr.x + ox, curr.y + oy));
+					}
+				}
+			}
+			if ((!s.rook07Moved && !s.kingMovedWhite && getColor(p).equals(PieceColor.WHITE))){
+				res.add(new Field(6,0));
+			}
+			if ((!s.rook70Moved && !s.kingMovedBlack && getColor(p).equals(PieceColor.BLACK))){
+				res.add(new Field(2,7));
+			}
+			if ((!s.rook00Moved && !s.kingMovedWhite && getColor(p).equals(PieceColor.WHITE))){
+				res.add(new Field(2,0));
+			}
+			if ((!s.rook77Moved && !s.kingMovedBlack && getColor(p).equals(PieceColor.BLACK))){
+				res.add(new Field(6,7));
+			}
+			break;
+		
+			
+		}
+		while (res.contains(curr))
+			res.remove(curr);
+		return res;
+	}
+	
+	private ArrayList<Field> getEyeballing(Field f, char[][] pieces, Context s) {
+		ArrayList<Field> res = new ArrayList<>();
+		char p = pieces[f.y][f.x];
+		char toUpper = (char) (pieces[f.y][f.x] + ((getColor(pieces[f.y][f.x]).equals(PieceColor.BLACK)) ? ('A' - 'a'): 0));
+		//System.out.println("F" + curr.y + " " + curr.x);
+		char c;
+		switch (toUpper) {
+		case 'R':
+			for(int i = f.x + 1; i<8; i++) {
+				c = pieces[f.y][i];
+				if (c == '.' || !getColor(c).equals(getColor(p)))
+					res.add(new Field(i,f.y));
+				if (pieces[f.y][i] != '.') {
+					break;
+				}
+					
+			}
+			for(int i = f.x - 1; i>=0; i--) {
+				c = pieces[f.y][i];
+				if (c == '.' || !getColor(c).equals(getColor(p)))
+					res.add(new Field(i,f.y));
+				if (pieces[f.y][i] != '.') {
+					break;
+				}
+			}
+			for(int i = f.y + 1; i<8; i++) {
+				c = pieces[i][f.x];
+				if (c == '.' || !getColor(c).equals(getColor(p)))
+					res.add(new Field(f.x, i));
+				if (pieces[i][f.x] != '.') {
+					break;
+				}
+			}
+			for(int i = f.y - 1; i>=0; i--) {
+				c = pieces[i][f.x];
+				if (c == '.' || !getColor(c).equals(getColor(p)))
+					res.add(new Field(f.x, i));
+				if (pieces[i][f.x] != '.') {
+					break;
+				}
+					
+			}
+			break;
+		
+		case 'B':
+			for(int i = f.x + 1; i<8; i++) {
+				
+				int yn = i - (f.x - f.y);
+				if (yn < 0 || yn >= 8)
+					break;
+				c = pieces[yn][i];
+				if (c == '.' || getColor(c) != getColor(p))
+					res.add(new Field(i,yn));
+				if (pieces[yn][i] != '.') {
+					break;
+				}
+				
+			}
+			for(int i = f.x - 1; i>=0; i--) {
+				int yn = i - (f.x - f.y);
+				if (yn < 0 || yn >= 8)
+					break;
+				c = pieces[yn][i];
+				if (c == '.' || getColor(c) != getColor(p))
+					res.add(new Field(i,yn));
+				if (pieces[yn][i] != '.') {
+					break;
+				}
+			}
+			for(int i = f.y + 1; i<8; i++) {
+				int xn = (f.x + f.y) - i;
+				if (xn < 0 || xn >= 8)
+					break;
+				c = pieces[i][xn];
+				if (c == '.' || getColor(c) != getColor(p))
+					res.add(new Field(xn, i));
+				if (pieces[i][xn] != '.') {
+					break;
+				}
+			}
+			for(int i = f.y - 1; i>=0; i--) {
+				int xn = (f.x + f.y) - i;
+				if (xn < 0 || xn >= 8)
+					break;
+				c = pieces[i][xn];
+				if (c == '.' || getColor(c) != getColor(p))
+					res.add(new Field(xn, i));
+				if (pieces[i][xn] != '.') {
+					break;
+				}
+				
+			}
+			break;
+		case 'Q':
+			for(int i = f.x + 1; i<8; i++) {
+				c = pieces[f.y][i];
+				if (c == '.' || !getColor(c).equals(getColor(p)))
+					res.add(new Field(i,f.y));
+				if (pieces[f.y][i] != '.') {
+					break;
+				}
+					
+			}
+			for(int i = f.x - 1; i>=0; i--) {
+				c = pieces[f.y][i];
+				if (c == '.' || !getColor(c).equals(getColor(p)))
+					res.add(new Field(i,f.y));
+				if (pieces[f.y][i] != '.') {
+					break;
+				}
+			}
+			for(int i = f.y + 1; i<8; i++) {
+				c = pieces[i][f.x];
+				if (c == '.' || !getColor(c).equals(getColor(p)))
+					res.add(new Field(f.x, i));
+				if (pieces[i][f.x] != '.') {
+					break;
+				}
+			}
+			for(int i = f.y - 1; i>=0; i--) {
+				c = pieces[i][f.x];
+				if (c == '.' || !getColor(c).equals(getColor(p)))
+					res.add(new Field(f.x, i));
+				if (pieces[i][f.x] != '.') {
+					break;
+				}
+					
+			}
+			for(int i = f.x + 1; i<8; i++) {
+				
+				int yn = i - (f.x - f.y);
+				if (yn < 0 || yn >= 8)
+					break;
+				c = pieces[yn][i];
+				if (c == '.' || !getColor(c).equals(getColor(p)))
+					res.add(new Field(i,yn));
+				if (pieces[yn][i] != '.') {
+					break;
+				}
+				
+			}
+			for(int i = f.x - 1; i>=0; i--) {
+				int yn = i - (f.x - f.y);
+				if (yn < 0 || yn >= 8)
+					break;
+				c = pieces[yn][i];
+				if (c == '.' || !getColor(c).equals(getColor(p)))
+					res.add(new Field(i,yn));
+				if (pieces[yn][i] != '.') {
+					break;
+				}
+			}
+			for(int i = f.y + 1; i<8; i++) {
+				int xn = (f.x + f.y) - i;
+				if (xn < 0 || xn >= 8)
+					break;
+				c = pieces[i][xn];
+				if (c == '.' || !getColor(c).equals(getColor(p)))
+					res.add(new Field(xn, i));
+				if (pieces[i][xn] != '.') {
+					break;
+				}
+			}
+			for(int i = f.y - 1; i>=0; i--) {
+				int xn = (f.x + f.y) - i;
+				if (xn < 0 || xn >= 8)
+					break;
+				c = pieces[i][xn];
+				if (c == '.' || !getColor(c).equals(getColor(p)))
+					res.add(new Field(xn, i));
+				if (pieces[i][xn] != '.') {
+					break;
+				}
+			}
+			break;
+		case 'N':
+			int[] offs = {1, -1, 2, -2};
+			for(int ox:offs) {
+				for(int oy:offs) {
+					if (Math.abs(ox) != Math.abs(oy) && !outOfBounds(f.x + ox, f.y + oy) && (pieces[f.y + oy][f.x + ox] == '.' || !getColor(p).equals(getColor(pieces[f.y + oy][f.x + ox])))) {
+						res.add(new Field(f.x + ox, f.y + oy));
+					}
+				}
+			}
+			break;
+		case 'P':
+			if (getColor(p).equals(PieceColor.WHITE)) {
+				if (f.y + 1 < 8 && f.x + 1 < 8 && pieces[f.y+1][f.x + 1] != '.' && !getColor(pieces[f.y + 1][f.x + 1]).equals(getColor(p))) {
+					res.add(new Field(f.x + 1, f.y + 1));
+				}
+				if (f.y + 1 < 8 && f.x - 1 >= 0 && pieces[f.y+1][f.x - 1] != '.' && !getColor(pieces[f.y + 1][f.x - 1]).equals(getColor(p)))
+				{
+					res.add(new Field(f.x - 1, f.y + 1));
+				}
+				if (f.y + 1 < 8 && pieces[f.y + 1][f.x] == '.') {
+					res.add(new Field(f.x, f.y + 1));
+					if (f.y == 1) {
+						if (pieces[f.y + 2][f.x] == '.')
+							res.add(new Field(f.x, f.y + 2));
+					}
+				}
+			}
+			else {
+				if (f.y - 1 >= 0 && f.x + 1 < 8 && pieces[f.y - 1][f.x + 1] != '.' && !getColor(pieces[f.y - 1][f.x + 1]).equals(getColor(p))) {
+					res.add(new Field(f.x + 1, f.y - 1));
+				}
+				if (f.y - 1 >= 0 && f.x - 1 >= 0 && pieces[f.y - 1][f.x - 1] != '.' && !getColor(pieces[f.y - 1][f.x - 1]).equals(getColor(p))) {
+					res.add(new Field(f.x - 1, f.y - 1));
+				}
+				if (f.y - 1 >= 0 && pieces[f.y - 1][f.x] == '.') {
+					res.add(new Field(f.x, f.y - 1));
+					if (f.y == 6) {
+						if (pieces[f.y - 2][f.x] == '.')
+							res.add(new Field(f.x, f.y - 2));
+					}
+				}
+			}
+			break;
+		case 'K':
+			int[] off = {1, -1, 0};
+			for(int ox:off) {
+				for(int oy:off) {
+					if (Math.abs(ox) + Math.abs(oy) > 0 && !outOfBounds(f.x + ox, f.y + oy) && (pieces[f.y + oy][f.x + ox] == '.' || !getColor(p).equals(getColor(pieces[f.y + oy][f.x + ox])))) {
+						res.add(new Field(f.x + ox, f.y + oy));
+					}
+				}
+			}
+			if ((!s.rook07Moved && !s.kingMovedWhite && getColor(p).equals(PieceColor.WHITE) && pieces[0][5] == '.' && pieces[0][6] == '.' && pieces[0][7] == 'R')){
+				res.add(new Field(6,0));
+			}
+			if ((!s.rook70Moved && !s.kingMovedBlack && getColor(p).equals(PieceColor.BLACK) && pieces[7][1] == '.' && pieces[7][2] == '.' && pieces[7][3] == '.' && pieces[7][0] == 'r')){
+				res.add(new Field(2,7));
+			}
+			if ((!s.rook00Moved && !s.kingMovedWhite && getColor(p).equals(PieceColor.WHITE) && pieces[0][1] == '.' && pieces[0][2] == '.' && pieces[0][3] == '.' && pieces[0][0] == 'R')){
+				res.add(new Field(2,0));
+			}
+			if ((!s.rook77Moved && !s.kingMovedBlack && getColor(p).equals(PieceColor.BLACK) && pieces[7][5] == '.' && pieces[7][6] == '.' && pieces[7][7] == 'r')){
+				res.add(new Field(6,7));
+			}
+			break;
+		
+		}
+		return res;
 	}
 
 
@@ -1015,16 +1514,18 @@ public class Board extends JPanel implements Runnable{
 					}
 				}
 			}
-			if ((!s.rook07Moved && !s.kingMovedWhite && getColor(p).equals(PieceColor.WHITE) && pieces[0][5] == '.' && pieces[0][6] == '.' && pieces[0][7] == 'R')){
+			ArrayList<Field> eyeballed = getAttackedByOpponent(getColor(p), pieces, s);
+			
+			if ((!s.rook07Moved && !s.kingMovedWhite && !eyeballed.contains(new Field(4,0)) && !eyeballed.contains(new Field(5,0)) && !eyeballed.contains(new Field(6,0)) && !eyeballed.contains(new Field(7,0)) &&  getColor(p).equals(PieceColor.WHITE) && pieces[0][5] == '.' && pieces[0][6] == '.' && pieces[0][7] == 'R')){
 				res.add(new Field(6,0));
 			}
-			if ((!s.rook70Moved && !s.kingMovedBlack && getColor(p).equals(PieceColor.BLACK) && pieces[7][1] == '.' && pieces[7][2] == '.' && pieces[7][3] == '.' && pieces[7][0] == 'r')){
+			if ((!s.rook70Moved && !s.kingMovedBlack && !eyeballed.contains(new Field(0,7)) && !eyeballed.contains(new Field(1,7)) && !eyeballed.contains(new Field(2,7)) && !eyeballed.contains(new Field(3,7)) && getColor(p).equals(PieceColor.BLACK) && pieces[7][1] == '.' && pieces[7][2] == '.' && pieces[7][3] == '.' && pieces[7][0] == 'r')){
 				res.add(new Field(2,7));
 			}
-			if ((!s.rook00Moved && !s.kingMovedWhite && getColor(p).equals(PieceColor.WHITE) && pieces[0][1] == '.' && pieces[0][2] == '.' && pieces[0][3] == '.' && pieces[0][0] == 'R')){
+			if ((!s.rook00Moved && !s.kingMovedWhite && !eyeballed.contains(new Field(0,0)) && !eyeballed.contains(new Field(1,0)) && !eyeballed.contains(new Field(2,0)) && !eyeballed.contains(new Field(3,0)) && !eyeballed.contains(new Field(4,0)) && getColor(p).equals(PieceColor.WHITE) && pieces[0][1] == '.' && pieces[0][2] == '.' && pieces[0][3] == '.' && pieces[0][0] == 'R')){
 				res.add(new Field(2,0));
 			}
-			if ((!s.rook77Moved && !s.kingMovedBlack && getColor(p).equals(PieceColor.BLACK) && pieces[7][5] == '.' && pieces[7][6] == '.' && pieces[7][7] == 'r')){
+			if ((!s.rook77Moved && !s.kingMovedBlack && !eyeballed.contains(new Field(3,7)) && !eyeballed.contains(new Field(4,7)) && !eyeballed.contains(new Field(5,7)) && !eyeballed.contains(new Field(6,7)) && !eyeballed.contains(new Field(7,7)) && getColor(p).equals(PieceColor.BLACK) && pieces[7][5] == '.' && pieces[7][6] == '.' && pieces[7][7] == 'r')){
 				res.add(new Field(6,7));
 			}
 			break;
@@ -1189,7 +1690,6 @@ public class Board extends JPanel implements Runnable{
 			return 100;
 			
 		}
-		//System.out.println("PROBLEM");
 		return 0;
 	}
 	
@@ -1273,6 +1773,20 @@ public class Board extends JPanel implements Runnable{
 		repaint();
 		
 	}
+	
+	ArrayList<Field> getAttackedByOpponent(PieceColor currColor, char[][] pieces, Context s){
+		ArrayList<Field> eyeballed = new ArrayList<>();
+		for(int i = 0; i<8; i++)
+			for(int j = 0; j<8; j++) {
+				if (!getColor(pieces[i][j]).equals(currColor) && pieces[i][j] != '.') {
+					ArrayList<Field> eb = getEyeballing(new Field(j,i), pieces, s);
+					for(Field f:eb) {
+						eyeballed.add(f);
+					}
+				}
+			}
+		return eyeballed;
+	}
 
 
 	@Override
@@ -1291,8 +1805,8 @@ public class Board extends JPanel implements Runnable{
 			//System.out.println(depth + " " + pieceCount);
 			
 			Move m = null;
-			if (currMove > 1)
-				m = findMove(6, PieceColor.BLACK, new int[1], -INFINITY, INFINITY);
+			if (currMove > 0)
+				m = findMove(4, PieceColor.BLACK, new int[1], -INFINITY, INFINITY);
 			else 
 				m = (Math.random() < 0.5) ? new Move(new Field(3,6), new Field(3,4)) : new Move(new Field(4, 6), new Field(4,4));
 			
@@ -1302,36 +1816,39 @@ public class Board extends JPanel implements Runnable{
 			int x = end.x;
 			int y = end.y;
 			
-			/*try {
-				Thread.sleep(1);
-			} catch (InterruptedException e) {
-				// TODO Auto-generated catch block
-				e.printStackTrace();
-			}*/
-			
-			//System.out.println("FINISHED \n" + current.x + " " + current.y + " " + x + " " + y);
-			
 			doMove(x,y, pieces, pieceContext, true);
 			
-			
 			if (premoved) {
+				
+				Field startingField = premove.start;
+				Field endingField = premove.end;
+				
+				
+				attacked = getAttackedFields(startingField, pieces, pieceContext);
+				blocked = getBlockedFields(startingField, attacked, pieces, pieceContext);
 				
 				playAgain = true;
 				premoved = false;
 				
-				current.x = premove.start.x;
-				current.y = premove.start.y;
-				
-				doMove(premove.end.x, premove.end.y, pieces, pieceContext, false);
-				
+				current.x = startingField.x;
+				current.y = startingField.y;
 				premove = null;
+				
+				if ((attacked.contains(endingField) && !blocked.contains(endingField))) {
+					doMove(endingField.x, endingField.y, pieces, pieceContext, false);
+				}
+				else {
+					playAgain = false;
+					draggedStart = null;
+					repaint();
+					
+				}
+				
 			}
 			else {
 				playAgain = false;
 			}
 		}
-			
-		
-		
+				
 	}
 }	

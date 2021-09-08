@@ -137,10 +137,10 @@ public class Game extends JFrame {
 		movesHistory.add(middlePanel, BorderLayout.CENTER);
 		movesHistory.add(arrows, BorderLayout.SOUTH);
 		
-		sideBar.add(winner);
-		sideBar.add(playerLabel);
 		sideBar.add(movesHistory);
+		sideBar.add(playerLabel);
 		
+		sideBar.add(winner);
 		
 		add(sideBar, BorderLayout.EAST);
 		
