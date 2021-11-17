@@ -29,6 +29,8 @@ public class Game extends JFrame {
 	JPanel moveNumbers;
 	JScrollPane scroll;
 	
+	TakenPieces takenWhite = new TakenPieces(), takenBlack = new TakenPieces();
+	
 	public Game() {
 		
 		setLayout(new BorderLayout());
@@ -37,7 +39,6 @@ public class Game extends JFrame {
 		this.getContentPane().add(board);
 		//add(board, BorderLayout.CENTER);
 		//pack();
-		
 		sideBar.setPreferredSize(new Dimension(160, 480));
 		sideBar.setBackground(new Color(220,220,220));
 		
@@ -58,7 +59,7 @@ public class Game extends JFrame {
 		winner.setFont(new Font("Calibri", Font.BOLD, 15));
 		winner.setHorizontalAlignment(JLabel.CENTER);
 		
-		sideBar.add(empty);
+		sideBar.add(takenBlack);
 		sideBar.add(computerLabel);
 		
 		
@@ -87,8 +88,6 @@ public class Game extends JFrame {
 		scroll.setHorizontalScrollBarPolicy(ScrollPaneConstants.HORIZONTAL_SCROLLBAR_NEVER);
 		scroll.setEnabled(true);
 		middlePanel.add(scroll, BorderLayout.NORTH);
-		
-		
 		
 		JButton left = new JButton("<");
 		JButton right = new JButton(">");
@@ -140,7 +139,7 @@ public class Game extends JFrame {
 		sideBar.add(movesHistory);
 		sideBar.add(playerLabel);
 		
-		sideBar.add(winner);
+		sideBar.add(takenWhite);
 		
 		add(sideBar, BorderLayout.EAST);
 		
@@ -150,8 +149,6 @@ public class Game extends JFrame {
 		
 		setDefaultCloseOperation(EXIT_ON_CLOSE);
 		setVisible(true);
-		
-		
 	}
 	
 	private void addMenu() {

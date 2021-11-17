@@ -74,9 +74,10 @@ public class Timer extends Thread {
 						}
 						
 					}
-					
+					board.owner.takenBlack.repaint();
+					board.owner.takenWhite.repaint();
 				}
-					
+				
 				//revalidate();
 			}
 		}

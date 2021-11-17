@@ -11,7 +11,10 @@ import java.awt.event.KeyAdapter;
 import java.awt.event.KeyEvent;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
+import java.io.ObjectInputStream.GetField;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
 
 import javax.swing.ImageIcon;
 import javax.swing.JButton;
@@ -26,7 +29,7 @@ public class Board extends JPanel implements Runnable{
 	int w = 480;
 	int h = 480;
 	char[][] pieces = new char[8][8], tempBoard = new char[8][8];
-	/*char[][] init = {
+	char[][] init = {
 			{'R', 'N', 'B', 'Q', 'K', 'B', 'N', 'R'},
 			{'P','P','P','P','P','P','P','P'},
 			{'.','.','.','.','.','.','.','.'},
@@ -35,9 +38,9 @@ public class Board extends JPanel implements Runnable{
 			{'.','.','.','.','.','.','.','.'},
 			{'p','p','p','p','p','p','p','p'},
 			{'r', 'n', 'b', 'q', 'k', 'b', 'n', 'r'}
-	};*/
+	};
 	
-	char[][] init = {
+	/*char[][] init = {
 			{'.','.','.','.','.','.','.','.'},
 			{'.','.','.','.','.','.','.','.'},
 			{'.','.','.','.','.','.','.','.'},
@@ -46,7 +49,7 @@ public class Board extends JPanel implements Runnable{
 			{'.','.','.','.','.','.','.','.'},
 			{'.','.','.','.','.','.','.','.'},
 			{'k','.','.','K','.','.','.','.'}
-	};
+	};*/
 	
 	Image k;
 	Image q;
@@ -126,57 +129,51 @@ public class Board extends JPanel implements Runnable{
 		return (c >= 'a' && c <= 'z') ? PieceColor.BLACK: PieceColor.WHITE;
 	}
 	
+	public Image getImage(String path) {
+		String extension = ".png";
+		Image res = new ImageIcon(getClass().getClassLoader().getResource(path + extension)).getImage().getScaledInstance(w/8, h/8, Image.SCALE_SMOOTH);
+		res = new ImageIcon(res).getImage();
+		return res;
+	}
+	
+	public void loadImages() {
+		List<Image> images = new ArrayList<>();
+		List<String> names = Arrays.asList("k", "q", "b", "n", "r", "p", "wk", "wq", "wb", "wn", "wr", "wp");
+
+		for (int i = 0; i<names.size(); i++) {
+			images.add(getImage(names.get(i)));
+		}
+		
+		k = images.get(0);
+		q = images.get(1);
+		b = images.get(2);
+		n = images.get(3);
+		r = images.get(4);
+		p = images.get(5);
+		K = images.get(6);
+		Q = images.get(7);
+		B = images.get(8);
+		N = images.get(9);
+		R = images.get(10);
+		P = images.get(11);
+		
+	}
+	
 	public Board(Game owner) {
 		
 		this.owner = owner;
 		
 		setPreferredSize(new Dimension(w,h));
 		
-		k = new ImageIcon(getClass().getClassLoader().getResource("k.png")).getImage().getScaledInstance(w/8, h/8, Image.SCALE_SMOOTH);
-		k = new ImageIcon(k).getImage();
+		//loading images of chess pieces
+		loadImages();
 		
-		q = new ImageIcon(getClass().getClassLoader().getResource("q.png")).getImage().getScaledInstance(w/8, h/8, Image.SCALE_SMOOTH);
-		q = new ImageIcon(q).getImage();
-		
-		b = new ImageIcon(getClass().getClassLoader().getResource("b.png")).getImage().getScaledInstance(w/8, h/8, Image.SCALE_SMOOTH);
-		b = new ImageIcon(b).getImage();
-		
-		n = new ImageIcon(getClass().getClassLoader().getResource("n.png")).getImage().getScaledInstance(w/8, h/8, Image.SCALE_SMOOTH);
-		n = new ImageIcon(n).getImage();
-		
-		r = new ImageIcon(getClass().getClassLoader().getResource("r.png")).getImage().getScaledInstance(w/8, h/8, Image.SCALE_SMOOTH);
-		r = new ImageIcon(r).getImage();
-		
-		p = new ImageIcon(getClass().getClassLoader().getResource("p.png")).getImage().getScaledInstance(w/8, h/8, Image.SCALE_SMOOTH);
-		p = new ImageIcon(p).getImage();
-		
-		K = new ImageIcon(getClass().getClassLoader().getResource("wk.png")).getImage().getScaledInstance(w/8, h/8, Image.SCALE_SMOOTH);
-		K = new ImageIcon(K).getImage();
-		
-		Q = new ImageIcon(getClass().getClassLoader().getResource("wq.png")).getImage().getScaledInstance(w/8, h/8, Image.SCALE_SMOOTH);
-		Q = new ImageIcon(Q).getImage();
-		
-		B = new ImageIcon(getClass().getClassLoader().getResource("wb.png")).getImage().getScaledInstance(w/8, h/8, Image.SCALE_SMOOTH);
-		B = new ImageIcon(B).getImage();
-		
-		N = new ImageIcon(getClass().getClassLoader().getResource("wn.png")).getImage().getScaledInstance(w/8, h/8, Image.SCALE_SMOOTH);
-		N = new ImageIcon(N).getImage();
-		
-		R = new ImageIcon(getClass().getClassLoader().getResource("wr.png")).getImage().getScaledInstance(w/8, h/8, Image.SCALE_SMOOTH);
-		R = new ImageIcon(R).getImage();
-		
-		P = new ImageIcon(getClass().getClassLoader().getResource("wp.png")).getImage().getScaledInstance(w/8, h/8, Image.SCALE_SMOOTH);
-		P = new ImageIcon(P).getImage();
-		
+		//setting green color as default
 		setColor(new Color(34, 139, 34));
 		
 		restart();
-		/*for(int i = 0; i <8; i++) {
-			pieces[i] = init[i].clone();
-		}*/
-		addListeners();
 		
-		//drawTable(getGraphics());
+		addListeners();
 		
 		repaint();
 	}
@@ -196,7 +193,6 @@ public class Board extends JPanel implements Runnable{
 	
 	
 	private void doMove(int x, int y, char[][] pieces, Context s, boolean animate) {
-		
 		try {
 			if (animatedThread != null)
 				animatedThread.join();
@@ -213,6 +209,18 @@ public class Board extends JPanel implements Runnable{
 		if (pieces == this.pieces) {
 			
 			char p = pieces[current.y][current.x];
+			char end = pieces[y][x];
+			
+			//adding to taken
+			if (s.equals(pieceContext) && end != '.') {
+				if (getColor(end).equals(PieceColor.BLACK)) {
+					owner.takenWhite.addImage(getImage(end), pieceValue(end));
+				}
+				else {
+					owner.takenBlack.addImage(getImage(end), pieceValue(end));
+				}
+			}
+			
 			if (p != 'P' && p != 'p') {
 				Character UpperCase = (char)(p + ((p >= 'a') ? 'A' - 'a': 0));
 				moveText = moveText.concat(UpperCase.toString());
@@ -339,6 +347,8 @@ public class Board extends JPanel implements Runnable{
 			
 	}
 	
+	
+	//checks whether two boards are equal
 	private boolean equal(char[][] mat1, char[][] mat2) {
 		for(int i = 0; i<8; i++)
 			for(int j = 0; j<8; j++) {
@@ -348,6 +358,7 @@ public class Board extends JPanel implements Runnable{
 		return true;
 	}
 	
+	//checks for threefold repetition
 	private boolean threefold() {
 		if (currMove < 9)
 			return false;
@@ -358,6 +369,7 @@ public class Board extends JPanel implements Runnable{
 		return true;
 	}
 
+	//checks for stalemate - player can't move, but isn't in check
 	private boolean stalemate() {
 		Field kingPos = null;
 		PieceColor oppTurn = (turn.equals(PieceColor.WHITE) ? PieceColor.BLACK : PieceColor.WHITE);
@@ -374,29 +386,25 @@ public class Board extends JPanel implements Runnable{
 	}
 
 	class Animation implements Runnable{
-
 		@Override
 		public void run() {
 			while (!animated.equals(animatedEnd)) {
-				//System.out.println("HERE");
+
 				animated.x += animatedPiece.x - animatedStart.x / fieldSize;
 				animated.y += animatedPiece.y - animatedStart.y / fieldSize;
-				
-				//System.out.println("G" + animated.y);
 				
 				repaint();
 				try {
 					Thread.sleep(3);
 				} catch (InterruptedException e) {
-					// TODO Auto-generated catch block
 					e.printStackTrace();
 				}
 			}
 			animatedPiece = null;
 			repaint();
-			
+			owner.takenBlack.repaint();
+			owner.takenWhite.repaint();
 		}
-		
 	}
 	
 	Animation animation = new Animation();
@@ -544,10 +552,7 @@ public class Board extends JPanel implements Runnable{
 				if (!gameOver) {
 					computerMove = new Thread(Board.this);
 					computerMove.start();
-					
 				}
-				
-				
 			}
 
 		});
@@ -627,16 +632,7 @@ public class Board extends JPanel implements Runnable{
 							
 							int[] sc = new int[1];
 							
-							/*if (depth == 5  && j == 7 && i == 3 && f.x == 7 && f.y == 1) {
-								System.out.println("STARTING");
-								started = true;
-							}*/
-								
-							
 							findMove(depth-1, (pc.equals(PieceColor.WHITE) ? PieceColor.BLACK : PieceColor.WHITE), sc, alpha, beta);
-							
-							//if (depth == 6)
-								//System.out.println(sc[0] + " " + j + " " + i + " " + f.x + " " + f.y + " " + depth);
 							
 							restoreContext(tempContext, s);
 							if (res == null)
@@ -647,8 +643,6 @@ public class Board extends JPanel implements Runnable{
 								if (sc[0] > score[0]) {
 									score[0] = sc[0];
 									res = new Move(new Field(j,i), new Field(f.x, f.y));
-									/*if (depth == 5)
-										System.out.println(sc[0] + " " + j + " " + i + " " + f.x + " " + f.y + " " + depth);*/
 								}
 								alpha = Math.max(alpha, score[0]);
 								if (beta <= alpha) {
@@ -812,11 +806,7 @@ public class Board extends JPanel implements Runnable{
 			Image img = getImage(table[draggedStart.y][draggedStart.x]);
 			g2D.drawImage(img, dragged.x - xoff, dragged.y - yoff, null);
 		}
-		/*if (premove != null &&  currMove == tables.size() - 1) {
-			Image img = getImage(table[premove.end.y][premove.end.x]);
-			g2D.drawImage(img, premove.end.x * fieldSize, premove.end.y * fieldSize, null);
-		}
-		*/
+		
 		if (clicked && currMove == tables.size() - 1 && !premoved) {
 			g2D.setComposite(AlphaComposite.getInstance(
 	                AlphaComposite.SRC_OVER, (float)0.5));
@@ -842,27 +832,16 @@ public class Board extends JPanel implements Runnable{
 		switch (toUpper) {
 		case 'R':
 			for(int i = 0; i<8; i++) {
-				
-					res.add(new Field(i,curr.y));
-				
-					
+				res.add(new Field(i,curr.y));
 			}
 			for(int i = 7; i>=0; i--) {
-				
-				
-					res.add(new Field(i,curr.y));
-				
+				res.add(new Field(i,curr.y));
 			}
 			for(int i = 0; i<8; i++) {
-				
-					res.add(new Field(curr.x, i));
-				
+				res.add(new Field(curr.x, i));
 			}
 			for(int i = 7; i>=0; i--) {
-				
-					res.add(new Field(curr.x, i));
-				
-					
+				res.add(new Field(curr.x, i));
 			}
 			break;
 		
@@ -905,68 +884,50 @@ public class Board extends JPanel implements Runnable{
 			break;
 		case 'Q':
 			for(int i = 0; i<8; i++) {
-				
-					res.add(new Field(i,curr.y));
-				
-				
-					
+				res.add(new Field(i,curr.y));
 			}
-			for(int i = 7; i>=0; i--) {
-				
-					res.add(new Field(i,curr.y));
-				
-			}
-			for(int i = 0; i<8; i++) {
-				
-					res.add(new Field(curr.x, i));
-				
-			}
-			for(int i = 7; i>=0; i--) {
-				
-					res.add(new Field(curr.x, i));
-				
-					
-			}
-			for(int i = 0; i<8; i++) {
-				
-				int yn = i - (curr.x - curr.y);
-				if (yn < 0 || yn >= 8)
-					break;
-				
-					res.add(new Field(i,yn));
-				
-				
-				
-			}
-			for(int i = 7; i>=0; i--) {
-				int yn = i - (curr.x - curr.y);
-				if (yn < 0 || yn >= 8)
-					break;
 			
-				
-					res.add(new Field(i,yn));
-				
+			for(int i = 7; i>=0; i--) {
+				res.add(new Field(i,curr.y));
+			}
+			
+			for(int i = 0; i<8; i++) {
+				res.add(new Field(curr.x, i));
 				
 			}
+			
+			for(int i = 7; i>=0; i--) {
+				res.add(new Field(curr.x, i));
+			}
+			
+			for(int i = 0; i<8; i++) {
+				int yn = i - (curr.x - curr.y);
+				if (yn < 0 || yn >= 8)
+					break;
+				res.add(new Field(i,yn));
+			}
+			for(int i = 7; i>=0; i--) {
+				int yn = i - (curr.x - curr.y);
+				if (yn < 0 || yn >= 8)
+					break;
+					res.add(new Field(i,yn));
+			}
+			
 			for(int i = 0; i<8; i++) {
 				int xn = (curr.x + curr.y) - i;
 				if (xn < 0 || xn >= 8)
 					break;
-				
 					res.add(new Field(xn, i));
-				
-				
 			}
+			
 			for(int i = 7; i>=0; i--) {
 				int xn = (curr.x + curr.y) - i;
 				if (xn < 0 || xn >= 8)
 					break;
-				
 				res.add(new Field(xn, i));
-				
-				
 			}
 			break;
+			
 		case 'N':
 			int[] offs = {1, -1, 2, -2};
 			for(int ox:offs) {
@@ -989,7 +950,6 @@ public class Board extends JPanel implements Runnable{
 				if (curr.y + 1 < 8) {
 					res.add(new Field(curr.x, curr.y + 1));
 					if (curr.y == 1) {
-						
 						res.add(new Field(curr.x, curr.y + 2));
 					}
 				}
@@ -1284,7 +1244,6 @@ public class Board extends JPanel implements Runnable{
 		}
 		return res;
 	}
-
 
 	private ArrayList<Field> getAttackedFields(Field curr, char[][] pieces, Context s) {
 		ArrayList<Field> res = new ArrayList<>();
@@ -1716,11 +1675,14 @@ public class Board extends JPanel implements Runnable{
 		}
 		tables = new ArrayList<char[][]>();
 		moves = new ArrayList<Move>();
+		pieceContext = new Context();
+		tempContext = new Context();
 		if (owner.listOfMoves != null)
 			owner.listOfMoves.removeAll();
 		if (owner.scroll != null)
 			owner.scroll.setPreferredSize(new Dimension(120, 23));
 		owner.a = 0;
+
 		setFocusable(true);
 		addCurrentTable();
 		checked = false;
@@ -1736,6 +1698,7 @@ public class Board extends JPanel implements Runnable{
 		pieceCount = 32;
 		turn = PieceColor.WHITE;
 		clicked = false;
+		started = false;
 		
 		if (owner.winner != null)
 			owner.winner.setText("");
@@ -1788,7 +1751,6 @@ public class Board extends JPanel implements Runnable{
 		return eyeballed;
 	}
 
-
 	@Override
 	public void run() {
 		
@@ -1805,7 +1767,9 @@ public class Board extends JPanel implements Runnable{
 			//System.out.println(depth + " " + pieceCount);
 			
 			Move m = null;
-			if (currMove > 0)
+			//System.out.println(currMove);
+			
+			if (currMove > 1)
 				m = findMove(4, PieceColor.BLACK, new int[1], -INFINITY, INFINITY);
 			else 
 				m = (Math.random() < 0.5) ? new Move(new Field(3,6), new Field(3,4)) : new Move(new Field(4, 6), new Field(4,4));
@@ -1822,7 +1786,6 @@ public class Board extends JPanel implements Runnable{
 				
 				Field startingField = premove.start;
 				Field endingField = premove.end;
-				
 				
 				attacked = getAttackedFields(startingField, pieces, pieceContext);
 				blocked = getBlockedFields(startingField, attacked, pieces, pieceContext);
@@ -1841,9 +1804,7 @@ public class Board extends JPanel implements Runnable{
 					playAgain = false;
 					draggedStart = null;
 					repaint();
-					
 				}
-				
 			}
 			else {
 				playAgain = false;
