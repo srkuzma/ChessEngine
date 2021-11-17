@@ -7,4 +7,5 @@ There are options of:
 - checking available squares for certain piece
 - changing the color of the board
 - starting a new game
+
 Side bar contains timers for both players, as well as the move history menu and taken pieces by the human player and the computer (sorted by piece value)
