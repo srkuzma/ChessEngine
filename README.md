@@ -1,7 +1,7 @@
 # ChessEngine
 ![](res/preview.png)
 
-Chess app with the option of playing against computer. Engine was built using backtracking, with the implementation of minimax algorithm and alpha-beta prunning.
+Chess app with the option of playing against computer. Engine was built using backtracking, with the implementation of minimax algorithm and alpha-beta pruning.
 There are options of:
 - premoving pieces
 - navigating through move history (by clicking on a certain move or with left/right arrow keys)
